@@ -6,6 +6,7 @@ const {
   ButtonStyle,
   EmbedBuilder,
 } = require('discord.js');
+const puppeteer = require('puppeteer');
 
 const { TOKEN, SERVER_ADDRESS, SEEDLOAF_DASHBOARD, STATUS_CHANNEL_ID } = require('./config');
 
@@ -84,17 +85,36 @@ client.on('messageCreate', async (message) => {
 
   // !startserver
   if (content === '!startserver') {
-    const row = new ActionRowBuilder().addComponents(
-      new ButtonBuilder()
-        .setLabel('Open Seedloaf Dashboard')
-        .setStyle(ButtonStyle.Link)
-        .setURL(SEEDLOAF_DASHBOARD),
-    );
+    await message.reply('Starting the Origins server, please wait...');
 
-    await message.reply({
-      content: '**Click below to start the Origins server!**\n> Note: it will auto-shutdown after **5 minutes** of no players.',
-      components: [row],
-    });
+    try {
+      const browser = await puppeteer.launch({ headless: true, args: ['--no-sandbox'] });
+      const page = await browser.newPage();
+
+      // Log into Seedloaf
+      await page.goto('https://seedloaf.com/login');
+      await page.type('input[type="email"]', process.env.SEEDLOAF_EMAIL);
+      await page.type('input[type="password"]', process.env.SEEDLOAF_PASSWORD);
+      await page.click('button[type="submit"]');
+      await page.waitForNavigation();
+
+      // Go to server dashboard
+      await page.goto(SEEDLOAF_DASHBOARD);
+
+      // Click the start button
+      await page.waitForSelector('button', { timeout: 10000 });
+      await page.evaluate(() => {
+        const buttons = Array.from(document.querySelectorAll('button'));
+        const startBtn = buttons.find(b => b.innerText.toLowerCase().includes('start'));
+        if (startBtn) startBtn.click();
+      });
+
+      await browser.close();
+      await message.reply('Server is starting! Give it a moment then join.');
+    } catch (err) {
+      console.error(err);
+      await message.reply('Something went wrong trying to start the server. Try starting it manually!');
+    }
   }
 
   // !status
@@ -156,7 +176,7 @@ client.on('messageCreate', async (message) => {
       .setColor(0xfee75c)
       .setTitle('Origins Bot Commands')
       .addFields(
-        { name: '`!startserver`', value: 'Get a link to start the server from the dashboard' },
+        { name: '`!startserver`', value: 'Automatically starts the Origins server' },
         { name: '`!status`', value: 'Check if the server is online and player count' },
         { name: '`!players`', value: 'See who is currently in the server' },
         { name: '`!ip`', value: 'Get the server IP address' },
