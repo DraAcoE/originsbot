@@ -8,6 +8,8 @@ const {
 } = require('discord.js');
 const puppeteer = require('puppeteer');
 
+const http = require('http');
+
 const { TOKEN, SERVER_ADDRESS, SEEDLOAF_DASHBOARD, STATUS_CHANNEL_ID } = require('./config');
 
 const client = new Client({
@@ -198,5 +200,8 @@ client.on('interactionCreate', async (interaction) => {
     await interaction.editReply({ embeds: [embed] });
   }
 });
+
+// Keep alive ping
+http.createServer((req, res) => res.end('alive')).listen(3000);
 
 client.login(TOKEN);
